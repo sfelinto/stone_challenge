@@ -14,7 +14,7 @@ pipeline {
         label 'jenkins-ecs-slave'
     }
     environment { 
-        GITURL="https://github.com/ceros/ceros-product"
+        GITURL="https://github.com/sfelinto/stone_challenge"
         CREDENTIALS="57db6742-0251-4c92-b060-9ba078e2dbfa"
         DOCKER_REPO="363177493653.dkr.ecr.us-east-1.amazonaws.com/webapp"
     }

@@ -58,8 +58,7 @@ pipeline {
                 }
          }
       }
-      /*
-      stage('Pull docker Image'){
+      stage('Pull Docker Image'){
          when {                
                 expression { 
                      params.BRANCH!= null
@@ -67,14 +66,13 @@ pipeline {
           }
           steps {
                 script {
-                    
-                    sh "eval \$(/usr/local/bin/aws ecr get-login --no-include-email --region us-east-1)"
-                    sh "docker run -it -p 3010:3000 -w /app/source/ env.DOCKER_REPO.push(01-dev-1)"
+                    sh "eval \$(aws ecr get-login --no-include-email --region ${env.REGION2})"
+                    sh "docker run -it -p 3010:3000 -w /app/source/ ${env.DOCKER_REPO}.push(version)"
                     docker.image(env.DOCKER_REPO).push(version)
                 }
          }
 
-      }*/
+      }
     }
 
 }

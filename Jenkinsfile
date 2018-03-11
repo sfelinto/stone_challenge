@@ -53,7 +53,7 @@ pipeline {
                     version = readFile('version').trim()
                     //sh "eval \$(/usr/local/bin/aws ecr get-login --no-include-email --region us-east-1)"  
                     sh "eval \$(aws ecr get-login --no-include-email --region ${env.REGION2})"
-                    sh "aws ecr create-repository --repository-name webapp"
+                    sh "aws ecr create-repository --repository-name webapp --region ${env.REGION2}"
                     docker.image(env.DOCKER_REPO).push(version)
                 }
          }

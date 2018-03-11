@@ -1,4 +1,5 @@
 env.REGION="us-east-1"
+env.REGION2="us-west-1"
 
 def login(command)
 {
@@ -16,7 +17,8 @@ pipeline {
     environment { 
         GITURL="https://github.com/sfelinto/stone_challenge"
         CREDENTIALS="57db6742-0251-4c92-b060-9ba078e2dbfa"
-        DOCKER_REPO="363177493653.dkr.ecr.us-east-1.amazonaws.com/webapp"
+        //DOCKER_REPO="599405637292.dkr.ecr.us-east-1.amazonaws.com/webapp"
+        DOCKER_REPO="599405637292.dkr.ecr.us-west-1.amazonaws.com/webapp"
     }
     stages {
        stage('Checkout Git on Branch Parameter') {
@@ -49,7 +51,8 @@ pipeline {
                     def version
                     sh "echo 01-dev-1 `git log --pretty=format:'%h' -n 1` > version"
                     version = readFile('version').trim()
-                    sh "eval \$(/usr/local/bin/aws ecr get-login --no-include-email --region us-east-1)"  
+                    //sh "eval \$(/usr/local/bin/aws ecr get-login --no-include-email --region us-east-1)"  
+                    sh "eval \$(aws ecr get-login --no-include-email --region env.REGION2)"
                     docker.image(env.DOCKER_REPO).push(version)
                 }
          }

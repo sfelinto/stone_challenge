@@ -53,7 +53,7 @@ pipeline {
                     version = readFile('version').trim()
                     //sh "eval \$(/usr/local/bin/aws ecr get-login --no-include-email --region us-east-1)"  
                     sh "eval \$(aws ecr get-login --no-include-email --region us-west-1)"
-                    sh "docker tag sfelinto:stone_challenge env.DOCKER_REPO:version"
+                    sh "docker tag sfelinto:stone_challenge 599405637292.dkr.ecr.us-west-1.amazonaws.com/webapp:version"
                     docker.image(env.DOCKER_REPO).push(version)
                 }
          }

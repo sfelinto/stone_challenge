@@ -75,6 +75,7 @@ pipeline {
                     def version
                     sh "echo 01-dev-`git log --pretty=format:'%h' -n 1` > version"
                     version = readFile('version').trim()
+                    sh "eval \$(aws ecr get-login --no-include-email --region ${env.REGION2})"
                     def image
                     image = env.DOCKER_REPO+":"+version
                     docker.image(image).pull()

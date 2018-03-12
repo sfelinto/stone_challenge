@@ -40,7 +40,7 @@ pipeline {
                }
           }   
        } 
-       stage('Push Docker Image'){
+       stage('Push and Pull Docker Image'){
           when {                
                 expression { 
                      params.BRANCH!= null
@@ -58,11 +58,11 @@ pipeline {
                     //sh "aws ecr delete-repository --force --repository-name webapp --region ${env.REGION2}"
                     
                     //sh "aws ecr create-repository --repository-name webapp --region ${env.REGION2}"
-                    docker.image(env.DOCKER_REPO).push(version)
+                    docker.image(env.DOCKER_REPO).push(version).withRun('-p 3010:3000 -w /app/source/')
                 }
          }
       }
-      stage('Pull Docker Image'){
+      /*stage('Pull Docker Image'){
          when {                
                 expression { 
                      params.BRANCH!= null
@@ -77,7 +77,7 @@ pipeline {
                 }
          }
 
-      }
+      }*/
     }
 
 }

@@ -69,11 +69,10 @@ pipeline {
           }
           steps {
                 script {
-                    def image
-                    image = docker.image(env.DOCKER_REPO).push(version)
                     sh "eval \$(aws ecr get-login --no-include-email --region ${env.REGION2})"
-                    sh "docker run -it -p 3010:3000 -w /app/source/ ${image}"
+                    //sh "docker run -it -p 3010:3000 -w /app/source/ "
                     //docker.image(env.DOCKER_REPO).push(version)
+                    docker.image(env.DOCKER_REPO).push(version).withRun('-p 3010:3000 -w /app/source/')
                 }
          }
 

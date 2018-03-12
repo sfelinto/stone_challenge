@@ -18,7 +18,7 @@ pipeline {
         GITURL="https://github.com/sfelinto/stone_challenge"
         CREDENTIALS="57db6742-0251-4c92-b060-9ba078e2dbfa"
         //DOCKER_REPO="599405637292.dkr.ecr.us-east-1.amazonaws.com/webapp"
-        DOCKER_REPO="599405637292.dkr.ecr.us-west-1.amazonaws.com/webapp"
+        DOCKER_REPO="599405637292.dkr.ecr.us-west-1.amazonaws.com/stone"
     }
     stages {
        stage('Checkout Git on Branch Parameter') {
@@ -48,16 +48,17 @@ pipeline {
           }
           steps {
                 script {
+                    
                     def version
                     sh "echo 01-dev-`git log --pretty=format:'%h' -n 1` > version"
                     version = readFile('version').trim()
-                    //sh "eval \$(/usr/local/bin/aws ecr get-login --no-include-email --region us-east-1)"  
+                    
                     sh "eval \$(aws ecr get-login --no-include-email --region ${env.REGION2})"
 
-                    sh "aws ecr describe-repositories --repository-names webapp --region ${env.REGION2}"
+                    //sh "aws ecr describe-repositories --repository-names webapp --region ${env.REGION2}"
                     //sh "aws ecr delete-repository --force --repository-name webapp --region ${env.REGION2}"
-                    
                     //sh "aws ecr create-repository --repository-name webapp --region ${env.REGION2}"
+                    
                     //docker.image(env.DOCKER_REPO).push(version).withRun('-p 3010:3000 -w /app/source/')
                     docker.image(env.DOCKER_REPO).push(version)
                 }

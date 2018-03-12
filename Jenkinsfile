@@ -54,7 +54,7 @@ pipeline {
                     //sh "eval \$(/usr/local/bin/aws ecr get-login --no-include-email --region us-east-1)"  
                     sh "eval \$(aws ecr get-login --no-include-email --region ${env.REGION2})"
 
-                    sh "aws ecr describe-repositories --repository-names webapp > /dev/null 2>&1 "
+                    sh "aws ecr describe-repositories --repository-names webapp ${env.REGION2} > /dev/null 2>&1 "
                     sh "if [ \$? -ne 0 ] then aws ecr create-repository --repository-name webapp --region ${env.REGION2} > /dev/null fi"
                     //sh "aws ecr create-repository --repository-name webapp --region ${env.REGION2}"
                     docker.image(env.DOCKER_REPO).push(version)

@@ -60,7 +60,7 @@ pipeline {
                     //sh "aws ecr create-repository --repository-name webapp --region ${env.REGION2}"
                     //docker.image(env.DOCKER_REPO).push(version).withRun('-p 3010:3000 -w /app/source/')
                     docker.image(env.DOCKER_REPO).push(version)
-                    sh "docker run -it -p 3010:3000 -w /app/source/ 599405637292.dkr.ecr.us-west-1.amazonaws.com/webapp:01-dev-d9bdc37"
+                    sh "docker run -p 3010:3000 -w /app/source/ 599405637292.dkr.ecr.us-west-1.amazonaws.com/webapp:01-dev-d9bdc37"
                 }
          }
       }

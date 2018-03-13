@@ -76,6 +76,11 @@ pipeline {
                     sh "echo 01-dev-`git log --pretty=format:'%h' -n 1` > version"
                     version = readFile('version').trim()
                     sh "eval \$(aws ecr get-login --no-include-email --region ${env.REGION2})"
+                    //Register the task definition in the repository
+                    sh "aws ecs register-task-definition --family test --cli-input-json file://stone-v_1.json --region us-west-1"
+
+                    sh "aws ecs create-service --service-name stone-service --desired-count 1 --task-definition test --cluster stone --region us-west-1"
+                    
                     //def image
                     //image = env.DOCKER_REPO+":"+version
                     

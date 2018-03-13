@@ -81,7 +81,7 @@ pipeline {
                     
                     //docker.image(env.DOCKER_REPO).pull()
                     
-                    sh "docker run -d -p 3010:3000 -w /app/source/ 599405637292.dkr.ecr.us-west-1.amazonaws.com/stone:latest"
+                    sh "docker run -d -p 3011:3000 -w /app/source/ 599405637292.dkr.ecr.us-west-1.amazonaws.com/stone:latest"
                     //sh "docker run -d -p 3010:3000 -w /app/source/ ${image}"
                 }
          }

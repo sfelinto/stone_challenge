@@ -1,0 +1,72 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Sets up ecs service
+Parameters:
+  ClusterName:
+    Description: Cluster name
+    Type: String
+    Default: stone
+
+  NginxTasksNumber:
+    Description: Nginx tasks number
+    Default: 1
+    Type: Number
+
+  NginxContainerMemorySize:
+    Description: Nginx container memory size
+    Type: Number
+    Default: 128
+
+  DockerImage:
+    Description: Docker image
+    Type: String
+    Default: 599405637292.dkr.ecr.us-west-1.amazonaws.com/stone:latest
+
+Resources:
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId:
+        'Fn::ImportValue': !Sub ${ClusterName}VPC
+      Protocol: HTTP
+      Port: 80
+      Matcher:
+          HttpCode: '200,301,401,302'
+      HealthCheckIntervalSeconds: 40
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 30
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 5
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: 30
+        - Key: stickiness.enabled
+          Value: true
+
+  NginxTask:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: stoneelb_nginx
+      ContainerDefinitions:
+        - Name: stoneelb_nginx
+          Image: stone
+          PortMappings:
+            - ContainerPort: 80
+              HostPort: 0
+          Memory: 512
+          MemoryReservation: !Ref NginxContainerMemorySize
+
+  NginxService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: stone
+      Role: 'arn:aws:iam::599405637292:role/us-west-1-stone_ECSRole'
+      TaskDefinition: !Ref NginxTask
+      DesiredCount: !Ref NginxTasksNumber
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 50
+        MaximumPercent: 100
+      LoadBalancers:
+        - ContainerName: stoneelb_nginx
+          ContainerPort: 80
+          TargetGroupArn: 'arn:aws:elasticloadbalancing:us-west-1:599405637292:targetgroup/stone-default/efb5fd11a1b94196'

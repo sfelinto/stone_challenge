@@ -72,21 +72,28 @@ pipeline {
           }
           steps {
                 script {
+                    
                     def version
+                    
                     sh "echo 01-dev-`git log --pretty=format:'%h' -n 1` > version"
                     version = readFile('version').trim()
+                    
                     sh "eval \$(aws ecr get-login --no-include-email --region ${env.REGION2})"
+                    
                     //Register the task definition in the repository
-                    sh "aws ecs register-task-definition --family test --cli-input-json file://stone-v_1.json --region us-west-1"
 
-                    sh "aws ecs create-service --service-name stone-service --desired-count 1 --task-definition test --cluster stone --region us-west-1"
+                    def image
+                    image = env.DOCKER_REPO+":"+version
+                    
+                    String parameters = "ParameterKey=ClusterName,ParameterValue=stone ParameterKey=DockerImage,ParameterValue=${image} ParameterKey=NginxTasksNumber,ParameterValue=1 ParameterKey=NginxContainerMemorySize,ParameterValue=128"
+                    sh "aws cloudformation create-stack --capabilities CAPABILITY_NAMED_IAM --region ${env.REGION2} --template-body file:deploy-site-stone.yml --stack-name site-deploy --parameters ${parameters}"
                     
                     //def image
                     //image = env.DOCKER_REPO+":"+version
                     
                     //docker.image(env.DOCKER_REPO).pull()
                     
-                    sh "docker run -d -p 3011:3000 -w /app/source/ 599405637292.dkr.ecr.us-west-1.amazonaws.com/stone:latest"
+                    //sh "docker run -d -p 3011:3000 -w /app/source/ 599405637292.dkr.ecr.us-west-1.amazonaws.com/stone:latest"
                     //sh "docker run -d -p 3010:3000 -w /app/source/ ${image}"
                 }
          }

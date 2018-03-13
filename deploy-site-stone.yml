@@ -49,7 +49,7 @@ Resources:
       Family: stoneelb_nginx
       ContainerDefinitions:
         - Name: stoneelb_nginx
-          Image: stone
+          Image: !Ref DockerImage
           PortMappings:
             - ContainerPort: 80
               HostPort: 0

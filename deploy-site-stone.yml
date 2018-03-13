@@ -51,8 +51,8 @@ Resources:
         - Name: stoneelb_nginx
           Image: !Ref DockerImage
           PortMappings:
-            - ContainerPort: 80
-              HostPort: 0
+            - ContainerPort: 3000
+              HostPort: 3010
           Memory: 512
           MemoryReservation: !Ref NginxContainerMemorySize
 

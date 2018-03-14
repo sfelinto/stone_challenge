@@ -93,7 +93,7 @@ pipeline {
                         sh "aws cloudformation delete-stack --region ${env.REGION2} --stack-name site-deploy" 
                         sh "aws cloudformation wait stack-delete-complete --region ${REGION} --stack-name site-deploy"
                         error("Build failed because error in cloudformation")
-                        }
+                    }
 
                     //def image
                     //image = env.DOCKER_REPO+":"+version

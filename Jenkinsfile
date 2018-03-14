@@ -79,15 +79,22 @@ pipeline {
                     version = readFile('version').trim()
                     
                     sh "eval \$(aws ecr get-login --no-include-email --region ${env.REGION2})"
-                    
-                    //Register the task definition in the repository
 
                     def image
                     image = env.DOCKER_REPO+":"+version
                     
                     String parameters = "ParameterKey=ClusterName,ParameterValue=stone ParameterKey=DockerImage,ParameterValue=${image} ParameterKey=NginxTasksNumber,ParameterValue=1 ParameterKey=NginxContainerMemorySize,ParameterValue=128"
-                    sh "aws cloudformation create-stack --capabilities CAPABILITY_NAMED_IAM --region ${env.REGION2} --template-body file://deploy-site-stone.yml --stack-name site-deploy --parameters ${parameters}"
                     
+                    sh "aws cloudformation create-stack --capabilities CAPABILITY_NAMED_IAM --region ${env.REGION2} --template-body file://cloudformation/deploy-site-stone.yml --stack-name site-deploy --parameters ${parameters}"
+
+                    try {
+                        sh "timeout 3600 aws cloudformation wait stack-create-complete --region ${env.REGION2} --stack-name site-deploy"
+                    } catch(Exception e) {
+                        sh "aws cloudformation delete-stack --region ${env.REGION2} --stack-name site-deploy" 
+                        sh "aws cloudformation wait stack-delete-complete --region ${REGION} --stack-name site-deploy"
+                        error("Build failed because error in cloudformation")
+                        }
+
                     //def image
                     //image = env.DOCKER_REPO+":"+version
                     

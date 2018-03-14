@@ -1,0 +1,475 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Sets up ecs cluster
+Parameters:
+  ClusterName:
+    Description: Cluster name
+    Type: String
+    Default: stone
+  
+  ECSInstanceType:
+    Description: ECS instance type 
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+      - t2.nano
+      - t2.micro
+      - t2.small
+      - t2.medium 
+      - t2.large
+      - m4.large
+      - m4.xlarge
+      - m4.2xlarge
+      - m4.4xlarge
+      - m4.10xlarge
+      - m4.16xlarge
+      - m3.medium
+      - m3.large
+      - m3.xlarge
+      - m3.2xlarge
+      - c4.large
+      - c4.xlarge
+      - c4.2xlarge
+      - c4.4xlarge
+      - c4.8xlarge
+      - c3.large
+      - c3.xlarge
+      - c3.2xlarge
+      - c3.4xlarge
+      - c3.8xlarge
+      - r4.large
+      - r4.xlarge
+      - r4.2xlarge
+      - r4.4xlarge
+      - r4.8xlarge
+      - r4.16xlarge
+      - r3.large
+      - r3.xlarge
+      - r3.2xlarge
+      - r3.4xlarge
+      - r3.8xlarge
+      - i3.large
+      - i3.xlarge
+      - i3.2xlarge
+      - i3.4xlarge
+      - i3.8xlarge
+      - i3.16xlarge
+
+  KeyName:
+    Description: Keypair for service
+    Type: String
+    ConstraintDescription: Must be a valid keypair
+    Default: stone
+
+  AsgServiceMin:
+    Description: ASG minimum instances
+    Type: Number
+    Default: 1 
+
+  AsgServiceDesired:
+    Description: ASG desired instances
+    Type: Number
+    Default: 1  
+
+  AsgServiceMax:
+    Description: ASG maximum instances
+    Type: Number
+    Default: 1
+
+Mappings:
+  RegionMap:
+    us-east-1:
+      UbuntuImage: ami-cd0f5cb6
+      ECSImage: ami-a7a242da
+    us-east-2:
+      UbuntuImage: ami-10547475
+      ECSImage: ami-b86a5ddd
+    us-west-1:
+      UbuntuImage: ami-09d2fb69
+      ECSImage: ami-9ad4dcfa
+    us-west-2:
+      UbuntuImage: ami-6e1a0117
+      ECSImage: ami-92e06fea
+    ca-central-1:
+      UbuntuImage: ami-b3d965d7
+      ECSImage: ami-5ac94e3e
+    eu-west-1:
+      UbuntuImage: ami-785db401
+      ECSImage: ami-0693ed7f
+    eu-central-1:
+      UbuntuImage: ami-1e339e71
+      ECSImage: ami-0799fa68
+    eu-west-2:
+      UbuntuImage: ami-996372fd
+      ECSImage: ami-f4e20693
+    ap-southeast-1:
+      UbuntuImage: ami-6f198a0c
+      ECSImage: ami-0a622c76
+    ap-southeast-2:
+      UbuntuImage: ami-e2021d81
+      ECSImage: ami-ee884f8c
+    ap-northeast-2:
+      UbuntuImage: ami-d28a53bc
+      ECSImage: ami-a5dd70cb
+    ap-northeast-1:
+      UbuntuImage: ami-ea4eae8c
+      ECSImage: ami-68ef940e
+
+Resources:
+#========== Roles
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref EC2Role
+      InstanceProfileName: !Sub ${AWS::Region}-${ClusterName}_EC2InstanceProfile
+        
+  EC2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${AWS::Region}-${ClusterName}_EC2Role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - 'ec2.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+      - 'arn:aws:iam::aws:policy/AdministratorAccess'
+  
+  ECSRole: 
+    Type: AWS::IAM::Role
+    Properties: 
+      RoleName: !Sub ${AWS::Region}-${ClusterName}_ECSRole
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - 'ecs.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns: 
+        - 'arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceRole'
+              
+#========== Security Groups
+  InternalAccessSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupName: !Sub ${ClusterName}AllowInternalAccess
+      GroupDescription: Enables access to all VPC protocols and IPs
+      SecurityGroupIngress:
+        - IpProtocol: -1
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 10.10.0.0/16
+   
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupName: !Sub ${ClusterName}AllowWebServer
+      GroupDescription: Enables access to all IPs to port 80 and 443
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0       
+
+  BastionSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupName: !Sub ${ClusterName}AllowSSH
+      GroupDescription: Enables access to all IPs to port 22
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0              
+          
+#========== VPC
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.10.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${ClusterName}VPC
+  
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${ClusterName}IGVPC
+          
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway        
+  
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.10.10.0/24
+      AvailabilityZone: 
+        'Fn::Select': [0, !GetAZs ""]
+      Tags:
+        - Key: Name
+          Value: !Sub ${ClusterName}PublicSubnet1
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.10.20.0/24
+      AvailabilityZone: 
+        'Fn::Select': [1, !GetAZs ""]
+      Tags:
+        - Key: Name
+          Value: !Sub ${ClusterName}PublicSubnet2
+                 
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${ClusterName}PublicRouteTable
+          
+  PublicRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+              
+  PublicSubnet1Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+  
+  PublicSubnet2Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.10.30.0/24
+      AvailabilityZone:
+        'Fn::Select': [0, !GetAZs ""]
+      Tags:
+        - Key: Name
+          Value: !Sub ${ClusterName}PrivateSubnet1
+          
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.10.40.0/24
+      AvailabilityZone: 
+        'Fn::Select': [1, !GetAZs ""]
+      Tags:
+        - Key: Name
+          Value: !Sub ${ClusterName}PrivateSubnet2          
+                
+  EIP:
+    Type: AWS::EC2::EIP
+    DependsOn: InternetGateway
+    Properties:
+      Domain: vpc
+ 
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      AllocationId: !Sub ${EIP.AllocationId}
+                  
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${ClusterName}PrivateRouteTable
+
+  PrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      RouteTableId: !Ref PrivateRouteTable
+      NatGatewayId: !Ref NatGateway  
+  
+  PrivateSubnet1Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateRouteTable
+          
+  PrivateSubnet2Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable   
+     
+#========== Load Balancer
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub ecs-cluster-${ClusterName}
+      Scheme: internet-facing
+      Subnets: 
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+      SecurityGroups:
+        - !Ref LoadBalancerSecurityGroup
+        - !Ref InternalAccessSecurityGroup
+
+  TargetGroupDefault:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    DependsOn: LoadBalancer
+    Properties:
+      Name: !Sub ${ClusterName}-default
+      VpcId: !Ref VPC
+      Port: 80
+      Protocol: HTTP
+      Matcher:
+        HttpCode: '200,301,401'
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+
+  LoadBalancerListenerForHTTP:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroupDefault 
+          
+#========== EC2
+  BastionInstance: 
+    Type: AWS::EC2::Instance
+    Properties: 
+      Tags: 
+        - Key: Name
+          Value: !Sub ${ClusterName} bastion
+      NetworkInterfaces: 
+        - AssociatePublicIpAddress: true
+          DeviceIndex: 0
+          GroupSet: 
+            - !Ref BastionSecurityGroup
+            - !Ref InternalAccessSecurityGroup
+          SubnetId: !Ref PublicSubnet1
+      ImageId: !FindInMap [ RegionMap, !Ref 'AWS::Region', UbuntuImage ]
+      InstanceType: t2.micro
+      KeyName: !Ref KeyName
+      IamInstanceProfile: !Ref EC2InstanceProfile
+
+  LaunchConfiguration:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      IamInstanceProfile: !Ref EC2InstanceProfile
+      KeyName: !Ref KeyName
+      ImageId: !FindInMap [ RegionMap, !Ref 'AWS::Region', ECSImage ]
+      SecurityGroups:
+        - !Ref InternalAccessSecurityGroup
+      InstanceType: !Ref ECSInstanceType
+      AssociatePublicIpAddress: false
+      BlockDeviceMappings:
+        - DeviceName: "/dev/xvda"
+          Ebs:
+            VolumeSize: '100'
+        - DeviceName: "/dev/xvdcz" 
+          Ebs:
+            VolumeSize: '100'  
+      UserData: 
+        Fn::Base64: !Sub | 
+          #!/bin/bash
+          #====== Resize EBS
+          resize2fs /dev/xvda
+          resize2fs /dev/xvdcz
+          
+          echo ECS_CLUSTER=${ECSCluster} >> /etc/ecs/ecs.config
+
+          sudo yum update -y ecs-init
+
+          yum install unzip -y
+          curl "https://s3.amazonaws.com/aws-cli/awscli-bundle.zip" -o "awscli-bundle.zip"
+          unzip awscli-bundle.zip
+          ./awscli-bundle/install -i /usr/local/aws -b /usr/local/bin/aws
+          /usr/local/bin/aws --version
+
+          #docker run -d -p 3010:3000 -w /app/source/ 599405637292.dkr.ecr.us-west-1.amazonaws.com/stone:latest
+
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${ClusterName} cluster
+          PropagateAtLaunch: true
+      LaunchConfigurationName: !Ref LaunchConfiguration
+      MinSize: !Ref AsgServiceMin
+      DesiredCapacity: !Ref AsgServiceDesired
+      MaxSize: !Ref AsgServiceMax
+      TargetGroupARNs:
+        - !Ref TargetGroupDefault
+      VPCZoneIdentifier:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+    
+#========== ECS
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub ${ClusterName}
+ 
+  ECRRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub ${ClusterName}
+
+  ScaleUpPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref AutoScalingGroup
+      Cooldown: 1
+      ScalingAdjustment: 1
+    
+  ScaleDownPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref AutoScalingGroup
+      Cooldown: 1
+      ScalingAdjustment: -1
+   
+Outputs:  
+  VPC:
+    Value: !Ref VPC
+    Export:
+      Name: !Sub ${ClusterName}VPC

@@ -85,8 +85,8 @@ pipeline {
                     
                     String parameters = "ParameterKey=ClusterName,ParameterValue=stone \
                                             ParameterKey=DockerImage,ParameterValue=${image} \
-                                            ParameterKey=NginxTasksNumber,ParameterValue=1 \
-                                            ParameterKey=NginxContainerMemorySize,ParameterValue=128"
+                                            ParameterKey=SiteTasksNumber,ParameterValue=1 \
+                                            ParameterKey=SiteContainerMemorySize,ParameterValue=128"
                     
                     sh "aws cloudformation create-stack --capabilities CAPABILITY_NAMED_IAM --region ${env.REGION2} \
                             --template-body file://cloudformation/deploy-site-stone.yml --stack-name site-deploy \

@@ -28,7 +28,7 @@ Resources:
       VpcId:
         'Fn::ImportValue': !Sub ${ClusterName}VPC
       Protocol: HTTP
-      Port: 80
+      Port: 3000
       Matcher:
           HttpCode: '200,301,401,302'
       HealthCheckIntervalSeconds: 40
@@ -51,7 +51,7 @@ Resources:
         - Name: stone-elb-site
           Image: !Ref DockerImage
           PortMappings:
-            - ContainerPort: 80
+            - ContainerPort: 3000
               HostPort: 0
           MemoryReservation: !Ref SiteContainerMemorySize
 

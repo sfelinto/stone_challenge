@@ -83,13 +83,13 @@ pipeline {
                     def image
                     image = env.DOCKER_REPO+":"+version
                     
-                    String parameters = "ParameterKey=ClusterName,ParameterValue=stone \n
-                                            ParameterKey=DockerImage,ParameterValue=${image} \n
-                                            ParameterKey=NginxTasksNumber,ParameterValue=1 \n
+                    String parameters = "ParameterKey=ClusterName,ParameterValue=stone \
+                                            ParameterKey=DockerImage,ParameterValue=${image} \
+                                            ParameterKey=NginxTasksNumber,ParameterValue=1 \
                                             ParameterKey=NginxContainerMemorySize,ParameterValue=128"
                     
-                    sh "aws cloudformation create-stack --capabilities CAPABILITY_NAMED_IAM --region ${env.REGION2} \n
-                            --template-body file://cloudformation/deploy-site-stone.yml --stack-name site-deploy \n
+                    sh "aws cloudformation create-stack --capabilities CAPABILITY_NAMED_IAM --region ${env.REGION2} \
+                            --template-body file://cloudformation/deploy-site-stone.yml --stack-name site-deploy \
                             --parameters ${parameters}"
 
                     try {

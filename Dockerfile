@@ -2,7 +2,7 @@
 FROM node:7.8.0
 
 # Set the working dir when our container executes
-WORKDIR /app
+WORKDIR /app/source
 
 # Copy our package.json file
 ADD /source/package.json /app

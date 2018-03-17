@@ -18,17 +18,12 @@ pipeline {
             }
             steps {
                 script {       
-                git([url: env.GITURL, branch: env.BRANCH, credentialsId: env.CREDENTIALS])
+                    git([url: env.GITURL, branch: env.BRANCH, credentialsId: env.CREDENTIALS])
                 }
             }      
         }
 
         stage('Create ECS Cluster'){
-            when {                
-                expression { 
-                        params.BRANCH!= null
-                }
-            }
             steps {
                 script {
 

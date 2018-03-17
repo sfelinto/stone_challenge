@@ -79,8 +79,7 @@ Resources:
     Type: AWS::ECS::Service
     DependsOn: ListenerRuleForHTTP
     Properties:
-      Cluster: 
-        'Fn::ImportValue': !Sub ECSCluster
+      Cluster: stone
         #'Fn::ImportValue': !Sub ${ClusterName}ECSCluster
       Role:
         'Fn::ImportValue': !Sub ${ClusterName}ECSRoleArn 

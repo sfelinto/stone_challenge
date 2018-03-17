@@ -28,7 +28,7 @@ pipeline {
                 script {
 
                     // Parameters
-                    String clusterParameters = "ParameterKey=ClusterName,ParameterValue=${CLUSTER_NAME} \
+                    String parameters = "ParameterKey=ClusterName,ParameterValue=${CLUSTER_NAME} \
                                             ParameterKey=ECSInstanceType,ParameterValue=${CLUSTER_TYPE} \
                                             ParameterKey=KeyName,ParameterValue=${CLUSTER_KEY} \
                                             ParameterKey=AsgServiceMin,ParameterValue=${CLUSTER_MIN_MACHINES} \
@@ -38,7 +38,7 @@ pipeline {
                     // Create cloudformation stack
                     sh "aws cloudformation create-stack --capabilities CAPABILITY_NAMED_IAM --region ${REGION} \
                             --template-body file://cloudformation/deploy-cluster-stone.yml --stack-name cluster-deploy \
-                            --parameters ${clusterParameters}"
+                            --parameters ${parameters}"
                     try {
                         sh "timeout 3600 aws cloudformation wait stack-create-complete --region ${REGION} --stack-name cluster-deploy"
                     } catch(Exception e) {

@@ -28,7 +28,7 @@ pipeline {
             steps {
                 script {
                     
-                    RESULT = CLUSTER.tokenize(' : ')
+                    RESULT = SITE.tokenize(' : ')
                     RESULT_WITH_DASH = RESULT.replaceAll("\\.", "-")
                     STACK_NAME = "ecs-service-${RESULT_WITH_DASH}"
 

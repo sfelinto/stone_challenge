@@ -21,56 +21,51 @@ pipeline {
         DOCKER_REPO="599405637292.dkr.ecr.us-west-1.amazonaws.com/stone"
     }
     stages {
-       stage('Checkout Git on Branch Parameter') {
-          when {                
+        stage('Checkout Git on Branch Parameter') {
+            when {                
                 expression { 
-                     params.BRANCH != null
+                        params.BRANCH != null
                 }
-          }
-          steps {
-              script {       
+            }
+            steps {
+                script {       
                 git([url: env.GITURL, branch: env.BRANCH, credentialsId: env.CREDENTIALS])
-              }
-           }      
-       }
-       stage('Build WebApp Docker Image'){
-          steps {
-               script {
-                  docker.build(env.DOCKER_REPO)
-               }
-          }   
-       } 
-       stage('Push Docker Image'){
-          when {                
-                expression { 
-                     params.BRANCH!= null
                 }
-          }
-          steps {
+            }      
+        }
+        stage('Build WebApp Docker Image'){
+            steps {
+                script {
+                    docker.build(env.DOCKER_REPO)
+                }
+            }   
+        } 
+        stage('Push Docker Image'){
+            when {                
+                expression { 
+                        params.BRANCH != null
+                }
+            }
+            steps {
                 script {
                     
                     def version
                     sh "echo 01-dev-`git log --pretty=format:'%h' -n 1` > version"
                     version = readFile('version').trim()
                     
-                    sh "eval \$(aws ecr get-login --no-include-email --region ${env.REGION2})"
+                    sh "eval \$(aws ecr get-login --no-include-email --region ${REGION2})"
 
-                    //sh "aws ecr describe-repositories --repository-names webapp --region ${env.REGION2}"
-                    //sh "aws ecr delete-repository --force --repository-name webapp --region ${env.REGION2}"
-                    //sh "aws ecr create-repository --repository-name webapp --region ${env.REGION2}"
-                    
-                    //docker.image(env.DOCKER_REPO).push(version).withRun('-p 3010:3000 -w /app/source/')
                     docker.image(env.DOCKER_REPO).push(version)
                 }
-         }
-      }
-      stage('Pull Docker Image'){
-         when {                
+            }
+        }
+        stage('Pull Docker Image'){
+            when {                
                 expression { 
-                     params.BRANCH!= null
+                        params.BRANCH!= null
                 }
-          }
-          steps {
+            }
+            steps {
                 script {
                     
                     def version
@@ -78,39 +73,31 @@ pipeline {
                     sh "echo 01-dev-`git log --pretty=format:'%h' -n 1` > version"
                     version = readFile('version').trim()
                     
-                    sh "eval \$(aws ecr get-login --no-include-email --region ${env.REGION2})"
+                    sh "eval \$(aws ecr get-login --no-include-email --region ${REGION2})"
 
                     def image
                     image = env.DOCKER_REPO+":"+version
-                    
+                    // Parameters
                     String parameters = "ParameterKey=ClusterName,ParameterValue=stone \
                                             ParameterKey=DockerImage,ParameterValue=${image} \
                                             ParameterKey=SiteTasksNumber,ParameterValue=1 \
                                             ParameterKey=SiteContainerMemorySize,ParameterValue=128"
-                    
-                    sh "aws cloudformation create-stack --capabilities CAPABILITY_NAMED_IAM --region ${env.REGION2} \
+                                            
+                    // Create cloudformation stack
+                    sh "aws cloudformation create-stack --capabilities CAPABILITY_NAMED_IAM --region ${REGION2} \
                             --template-body file://cloudformation/deploy-site-stone.yml --stack-name site-deploy \
                             --parameters ${parameters}"
-
                     try {
-                        sh "timeout 3600 aws cloudformation wait stack-create-complete --region ${env.REGION2} --stack-name site-deploy"
+                        sh "timeout 3600 aws cloudformation wait stack-create-complete --region ${REGION2} --stack-name site-deploy"
                     } catch(Exception e) {
-                        sh "aws cloudformation delete-stack --region ${env.REGION2} --stack-name site-deploy" 
+                        sh "aws cloudformation delete-stack --region ${REGION2} --stack-name site-deploy" 
                         sh "aws cloudformation wait stack-delete-complete --region ${REGION2} --stack-name site-deploy"
                         error("Build failed because error in cloudformation")
                     }
-
-                    //def image
-                    //image = env.DOCKER_REPO+":"+version
-                    
-                    //docker.image(env.DOCKER_REPO).pull()
-                    
-                    //sh "docker run -d -p 3011:3000 -w /app/source/ 599405637292.dkr.ecr.us-west-1.amazonaws.com/stone:latest"
-                    //sh "docker run -d -p 3010:3000 -w /app/source/ ${image}"
                 }
-         }
+            }
 
-      }
+        }
     }
 
 }

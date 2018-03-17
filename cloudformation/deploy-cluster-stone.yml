@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Sets up ecs cluster
+Description: Sets up aws ecs cluster
 Parameters:
   ClusterName:
     Description: Cluster name
@@ -422,8 +422,6 @@ Resources:
           ./awscli-bundle/install -i /usr/local/aws -b /usr/local/bin/aws
           /usr/local/bin/aws --version
 
-          #docker run -d -p 3010:3000 -w /app/source/ 599405637292.dkr.ecr.us-west-1.amazonaws.com/stone:latest
-
   AutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
@@ -473,3 +471,13 @@ Outputs:
     Value: !Ref VPC
     Export:
       Name: !Sub ${ClusterName}VPC
+
+  ListenerElbArnForHTTP:
+    Value: !Ref LoadBalancerListenerForHTTP
+    Export:
+      Name: !Sub ${ClusterName}ListenerElbArnForHTTP
+
+  ECSRoleArn:
+    Value: !Sub ${ECSRole.Arn}
+    Export:
+      Name: !Sub ${ClusterName}ECSRoleArn

@@ -1,0 +1,554 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Sets Up Jenkins Deploy machine
+Parameters:
+  ProjectName:
+    Description: Project name
+    Type: String
+    Default: jenkinsdeploy
+
+  JenkinsInstanceType:
+    Description: ECS instance type
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+      - t2.nano
+      - t2.micro
+      - t2.small
+      - t2.medium 
+      - t2.large
+      - m4.large
+      - m4.xlarge
+      - m4.2xlarge
+      - m4.4xlarge
+      - m4.10xlarge
+      - m4.16xlarge
+      - m3.medium
+      - m3.large
+      - m3.xlarge
+      - m3.2xlarge
+      - c4.large
+      - c4.xlarge
+      - c4.2xlarge
+      - c4.4xlarge
+      - c4.8xlarge
+      - c3.large
+      - c3.xlarge
+      - c3.2xlarge
+      - c3.4xlarge
+      - c3.8xlarge
+      - r4.large
+      - r4.xlarge
+      - r4.2xlarge
+      - r4.4xlarge
+      - r4.8xlarge
+      - r4.16xlarge
+      - r3.large
+      - r3.xlarge
+      - r3.2xlarge
+      - r3.4xlarge
+      - r3.8xlarge
+      - i3.large
+      - i3.xlarge
+      - i3.2xlarge
+      - i3.4xlarge
+      - i3.8xlarge
+      - i3.16xlarge
+      
+  JenkinsAdminPassword:
+    NoEcho: true
+    Description: Jenkins admin password
+    Type: String
+    MinLength: 1
+    MaxLength: 21
+    AllowedPattern: ˆ[a-zA-z0-9]*$
+    
+  KeyName:
+    Description: Keypair for service
+    Type: String
+    ConstraintDescription: Must be a valid keypair
+    Default: jenkinskey
+
+  S3Folder:
+    Description: S3 Folder
+    Type: String
+    Default: jenkins-stone-backup
+    
+  S3File:
+    Description: S3 File
+    Type: String
+    Default: jenkins-configurations.tar
+
+Mappings:
+  RegionMap:
+    us-east-1:
+      UbuntuImage: ami-cd0f5cb6
+      ECSImage: ami-a7a242da
+    us-east-2:
+      UbuntuImage: ami-10547475
+      ECSImage: ami-b86a5ddd
+    us-west-1:
+      UbuntuImage: ami-09d2fb69
+      ECSImage: ami-9ad4dcfa
+    us-west-2:
+      UbuntuImage: ami-6e1a0117
+      ECSImage: ami-92e06fea
+    ca-central-1:
+      UbuntuImage: ami-b3d965d7
+      ECSImage: ami-5ac94e3e
+    eu-west-1:
+      UbuntuImage: ami-785db401
+      ECSImage: ami-0693ed7f
+    eu-central-1:
+      UbuntuImage: ami-1e339e71
+      ECSImage: ami-0799fa68
+    eu-west-2:
+      UbuntuImage: ami-996372fd
+      ECSImage: ami-f4e20693
+    ap-southeast-1:
+      UbuntuImage: ami-6f198a0c
+      ECSImage: ami-0a622c76
+    ap-southeast-2:
+      UbuntuImage: ami-e2021d81
+      ECSImage: ami-ee884f8c
+    ap-northeast-2:
+      UbuntuImage: ami-d28a53bc
+      ECSImage: ami-a5dd70cb
+    ap-northeast-1:
+      UbuntuImage: ami-ea4eae8c
+      ECSImage: ami-68ef940e
+
+Resources:
+#========== Roles
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref EC2Role
+      InstanceProfileName: !Sub ${AWS::Region}-${ProjectName}_EC2InstanceProfile
+
+  EC2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${AWS::Region}-${ProjectName}_EC2Role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - 'ec2.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+      - 'arn:aws:iam::aws:policy/AdministratorAccess'
+   
+#========== VPC
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.10.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}VPC
+  
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}IGVPC
+          
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway        
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.10.10.0/24
+      AvailabilityZone: 
+        'Fn::Select': [0, !GetAZs ""]
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}PublicSubnet1
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.10.20.0/24
+      AvailabilityZone: 
+        'Fn::Select': [1, !GetAZs ""]
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}PublicSubnet2
+                 
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}PublicRouteTable
+          
+  PublicRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+              
+  PublicSubnet1Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+  
+  PublicSubnet2Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+  
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.10.30.0/24
+      AvailabilityZone:
+        'Fn::Select': [0, !GetAZs ""]
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}PrivateSubnet1
+          
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.10.40.0/24
+      AvailabilityZone: 
+        'Fn::Select': [1, !GetAZs ""]
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}PrivateSubnet2          
+                
+  EIP:
+    Type: AWS::EC2::EIP
+    DependsOn: InternetGateway
+    Properties:
+      Domain: vpc
+ 
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      AllocationId: !Sub ${EIP.AllocationId}
+                  
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}PrivateRouteTable
+
+  PrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      RouteTableId: !Ref PrivateRouteTable
+      NatGatewayId: !Ref NatGateway  
+  
+  PrivateSubnet1Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateRouteTable
+          
+  PrivateSubnet2Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable
+
+#========== Security Groups
+  JenkinsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupName: !Sub ${ProjectName}AllowJenkins
+      GroupDescription: Enables access to all IPs to port 8080
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 0.0.0.0/0
+
+  InternalAccessSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupName: !Sub ${ProjectName}AllowInternalAccess
+      GroupDescription: Enables access to all VPC protocols and IPs
+      SecurityGroupIngress:
+        - IpProtocol: -1
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 10.10.0.0/16
+   
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupName: !Sub ${ProjectName}AllowWebServer
+      GroupDescription: Enables access to all IPs to port 80 and 443
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0     
+        
+  BastionSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupName: !Sub ${ProjectName}AllowSSH
+      GroupDescription: Enables access to all IPs to port 22
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+
+  JenkinsASGSG22:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      ToPort: '22'
+      IpProtocol: tcp
+      SourceSecurityGroupId:
+        Ref: BastionSecurityGroup
+      GroupId:
+        Ref: JenkinsSecurityGroup
+      FromPort: '22'          
+          
+#========== Load Balancer
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Ref ProjectName
+      Scheme: internet-facing
+      Subnets:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+      SecurityGroups:
+        - !Ref LoadBalancerSecurityGroup
+        - !Ref InternalAccessSecurityGroup
+
+  TargetGroupDefault:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    DependsOn: LoadBalancer
+    Properties:
+      Name: !Sub ${ProjectName}
+      VpcId: !Ref VPC
+      Port: 8080
+      Protocol: HTTP
+      Matcher:
+        HttpCode: '200,301,302,401'
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: 30
+
+  LoadBalancerListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroupDefault
+
+#========== EC2 
+  BastionInstance: 
+    Type: AWS::EC2::Instance
+    Properties: 
+      Tags: 
+        - Key: Name
+          Value: !Sub ${ProjectName} bastion
+      NetworkInterfaces: 
+        - AssociatePublicIpAddress: true
+          DeviceIndex: 0
+          GroupSet: 
+            - !Ref BastionSecurityGroup
+            - !Ref InternalAccessSecurityGroup
+          SubnetId: !Ref PublicSubnet1
+      ImageId: !FindInMap [ RegionMap, !Ref 'AWS::Region', UbuntuImage ]
+      InstanceType: t2.micro
+      KeyName: !Ref KeyName
+      IamInstanceProfile: !Ref EC2InstanceProfile
+
+  LaunchConfiguration:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      IamInstanceProfile: !Ref EC2InstanceProfile
+      KeyName: !Ref KeyName
+      ImageId: !FindInMap [ RegionMap, !Ref 'AWS::Region', UbuntuImage ]
+      SecurityGroups:
+        - !Ref InternalAccessSecurityGroup
+      InstanceType: !Ref JenkinsInstanceType
+      AssociatePublicIpAddress: false
+      BlockDeviceMappings:
+        - DeviceName: "/dev/sda1" 
+          Ebs:
+            VolumeSize: '20'
+      UserData: 
+        'Fn::Base64': 
+          'Fn::Sub':
+            - |
+              #!/bin/bash
+              #====== Resize EBS
+                resize2fs /dev/sda1
+              
+              #====== Install jq
+                apt-get -y install jq   
+              
+              #====== Install Git
+                add-apt-repository -y ppa:git-core/ppa
+                apt-get update
+                apt-get -y install git
+                
+              #====== Install AWS-CLI
+                apt-get -y install unzip
+                apt-get --reinstall -y install python-minimal
+                wget https://s3.amazonaws.com/aws-cli/awscli-bundle.zip
+                unzip awscli-bundle.zip
+                ./awscli-bundle/install -i /usr/local/aws -b /usr/local/bin/aws
+                rm -rf awscli-bundle*
+                
+              #====== Install Docker
+                wget https://get.docker.com/ -O - | sh
+
+              #====== Install "mysqldump" and "mysql"
+                apt-get -y install software-properties-common
+                apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 0xF1656F24C74CD1D8
+                add-apt-repository 'deb [arch=amd64,i386,ppc64el] http://mirror.ufscar.br/mariadb/repo/10.2/ubuntu xenial main'
+                apt-get update
+                apt-get -y install mariadb-client-10.2
+              
+              #====== Install Jenkins
+                wget -q -O - https://pkg.jenkins.io/debian/jenkins-ci.org.key | sudo apt-key add -
+                echo deb http://pkg.jenkins.io/debian-stable binary/ > /etc/apt/sources.list.d/jenkins.list
+                apt-get update
+                apt-get -y install jenkins
+
+              #====== Waits Jenkins complete initialization
+                while [[ -z $(curl -s http://localhost:8080/login | grep "<code>/var/lib/jenkins/secrets/initialAdminPassword</code>") ]]
+                do
+                  echo "waiting..."
+                  sleep 1
+                done
+              
+              #====== Configure Jenkins
+                #== Define jenkins directory
+                  cd /var/lib/jenkins/
+                  
+                #== Setup Variables
+                  JENKINSCLI=/var/cache/jenkins/war/WEB-INF/jenkins-cli.jar
+                  JENKINSAUTH=admin:$(cat /var/lib/jenkins/secrets/initialAdminPassword)
+                  
+                #== Install plugins
+                  java -jar $JENKINSCLI -s http://localhost:8080/ -auth $JENKINSAUTH install-plugin cloudbees-bitbucket-branch-source
+                  java -jar $JENKINSCLI -s http://localhost:8080/ -auth $JENKINSAUTH install-plugin jobConfigHistory
+                  java -jar $JENKINSCLI -s http://localhost:8080/ -auth $JENKINSAUTH install-plugin ec2
+                  java -jar $JENKINSCLI -s http://localhost:8080/ -auth $JENKINSAUTH install-plugin config-file-provider
+                  java -jar $JENKINSCLI -s http://localhost:8080/ -auth $JENKINSAUTH install-plugin rebuild
+                  java -jar $JENKINSCLI -s http://localhost:8080/ -auth $JENKINSAUTH install-plugin job-restrictions
+                  java -jar $JENKINSCLI -s http://localhost:8080/ -auth $JENKINSAUTH install-plugin workflow-aggregator
+                  java -jar $JENKINSCLI -s http://localhost:8080/ -auth $JENKINSAUTH install-plugin ssh-slaves
+                  java -jar $JENKINSCLI -s http://localhost:8080/ -auth $JENKINSAUTH install-plugin ws-cleanup
+                  java -jar $JENKINSCLI -s http://localhost:8080/ -auth $JENKINSAUTH install-plugin build-timeout
+                  java -jar $JENKINSCLI -s http://localhost:8080/ -auth $JENKINSAUTH install-plugin disk-usage
+                  java -jar $JENKINSCLI -s http://localhost:8080/ -auth $JENKINSAUTH install-plugin discard-old-build
+                  java -jar $JENKINSCLI -s http://localhost:8080/ -auth $JENKINSAUTH install-plugin pipeline-utility-steps
+                  java -jar $JENKINSCLI -s http://localhost:8080/ -auth $JENKINSAUTH install-plugin blueocean
+                  java -jar $JENKINSCLI -s http://localhost:8080/ -auth $JENKINSAUTH install-plugin groovy
+                  java -jar $JENKINSCLI -s http://localhost:8080/ -auth $JENKINSAUTH install-plugin jenkins-multijob-plugin
+                  java -jar $JENKINSCLI -s http://localhost:8080/ -auth $JENKINSAUTH install-plugin extended-choice-parameter
+                  java -jar $JENKINSCLI -s http://localhost:8080/ -auth $JENKINSAUTH install-plugin job-dsl
+                  java -jar $JENKINSCLI -s http://localhost:8080/ -auth $JENKINSAUTH install-plugin testng-plugin
+                  java -jar $JENKINSCLI -s http://localhost:8080/ -auth $JENKINSAUTH install-plugin cloverphp
+                  java -jar $JENKINSCLI -s http://localhost:8080/ -auth $JENKINSAUTH install-plugin clover
+                  java -jar $JENKINSCLI -s http://localhost:8080/ -auth $JENKINSAUTH install-plugin simple-theme-plugin
+                  java -jar $JENKINSCLI -s http://localhost:8080/ -auth $JENKINSAUTH install-plugin role-strategy
+                  java -jar $JENKINSCLI -s http://localhost:8080/ -auth $JENKINSAUTH install-plugin pom2config
+                  java -jar $JENKINSCLI -s http://localhost:8080/ -auth $JENKINSAUTH install-plugin email-ext-recipients-column
+                  java -jar $JENKINSCLI -s http://localhost:8080/ -auth $JENKINSAUTH install-plugin job-direct-mail
+                  java -jar $JENKINSCLI -s http://localhost:8080/ -auth $JENKINSAUTH install-plugin run-condition-extras
+                  java -jar $JENKINSCLI -s http://localhost:8080/ -auth $JENKINSAUTH install-plugin view-job-filters
+                  java -jar $JENKINSCLI -s http://localhost:8080/ -auth $JENKINSAUTH install-plugin emailext-template
+                  java -jar $JENKINSCLI -s http://localhost:8080/ -auth $JENKINSAUTH install-plugin configurationslicing
+                  java -jar $JENKINSCLI -s http://localhost:8080/ -auth $JENKINSAUTH install-plugin github-integration-plugin
+
+                #== Add MySQL connector
+                  wget -q -O - https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-5.1.44.tar.gz | tar -xz --strip=1 -C /usr/lib/jvm/default-java/jre/lib/ext mysql-connector-java-5.1.44/mysql-connector-java-5.1.44-bin.jar
+                
+                #== Add DNS utils
+                  wget -q https://ufpr.dl.sourceforge.net/project/dnsjava/dnsjava/2.1.7/dnsjava-2.1.7.jar -P /usr/lib/jvm/default-java/jre/lib/ext
+                
+                #== Restores previous configure 
+                  aws s3 cp s3://${S3Folder}/${S3File} `pwd`
+                  tar -xvf ${S3File}
+                  chown -R jenkins:jenkins *
+                  rm ${S3File}
+
+                #== Configure EC2 Plugin
+                  sed -i "s|<region>.*|<region>${AWS::Region}</region>|g" config.xml
+                  sed -i "s|<ami>.*|<ami>${AMI}</ami>|g" config.xml
+                  sed -i "s|<zone>.*|<zone>${PrivateSubnet1.AvailabilityZone}</zone>|g" config.xml
+                  sed -i "s|<securityGroups>.*|<securityGroups>${BastionSecurityGroup}</securityGroups>|g" config.xml
+                  sed -i "s|<subnetId>.*|<subnetId>${PrivateSubnet1}</subnetId>|g" config.xml
+                  sed -i "s|<iamInstanceProfile>.*|<iamInstanceProfile>${EC2InstanceProfile.Arn}</iamInstanceProfile>|g" config.xml
+                  sed -i "s|<value>.*|<value>${ProjectName} slave machine</value>|g" config.xml
+
+                #== Configure Backup Job
+                  sed -i "s|S3_FOLDER=.*|S3_FOLDER=${S3Folder}|g" jobs/backup-s3/config.xml
+                  sed -i "s|S3_FILE=.*|S3_FILE=${S3File}|g" jobs/backup-s3/config.xml
+
+                #== Disable Setup Wizard and Bypass Script Approval
+                  sed -i 's|JAVA_ARGS=.*|JAVA_ARGS="-Djenkins.install.runSetupWizard=false"|g' /etc/default/jenkins
+                  
+                #== Change Admin Password  
+                  echo 'jenkins.model.Jenkins.instance.securityRealm.createAccount("admin", "${JenkinsAdminPassword}")' | java -jar $JENKINSCLI -s "http://localhost:8080/" -auth $JENKINSAUTH groovy =   
+                
+                #== Force reload configurations
+                  service jenkins force-reload
+              
+            - AMI: !FindInMap [ RegionMap, !Ref 'AWS::Region', ECSImage ]
+          
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName} machine
+          PropagateAtLaunch: true
+      LaunchConfigurationName: !Ref LaunchConfiguration
+      MinSize: 1
+      DesiredCapacity: 1
+      MaxSize: 1 
+      TargetGroupARNs:
+        - !Ref TargetGroupDefault
+      VPCZoneIdentifier:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2

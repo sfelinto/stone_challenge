@@ -1,0 +1,60 @@
+
+env.REGION="us-west-1"
+
+pipeline {
+    agent {
+        label 'jenkins-ecs-slave'
+    }
+    environment { 
+        GITURL="https://github.com/sfelinto/stone_challenge"
+        CREDENTIALS="57db6742-0251-4c92-b060-9ba078e2dbfa"
+    }
+    stages {
+        stage('Checkout Git on Branch Parameter') {
+            when {                
+                expression { 
+                        params.BRANCH != null
+                }
+            }
+            steps {
+                script {       
+                git([url: env.GITURL, branch: env.BRANCH, credentialsId: env.CREDENTIALS])
+                }
+            }      
+        }
+
+        stage('Create ECS Cluster'){
+            when {                
+                expression { 
+                        params.BRANCH!= null
+                }
+            }
+            steps {
+                script {
+
+                    // Parameters
+                    String clusterParameters = "ParameterKey=ClusterName,ParameterValue=${CLUSTER_NAME} \
+                                            ParameterKey=ECSInstanceType,ParameterValue=${CLUSTER_TYPE} \
+                                            ParameterKey=KeyName,ParameterValue=${CLUSTER_KEY} \
+                                            ParameterKey=AsgServiceMin,ParameterValue=${CLUSTER_MIN_MACHINES} \
+                                            ParameterKey=AsgServiceDesired,ParameterValue=${CLUSTER_MIN_MACHINES} \
+                                            ParameterKey=AsgServiceMax,ParameterValue=${CLUSTER_MAX_MACHINES}"
+                                            
+                    // Create cloudformation stack
+                    sh "aws cloudformation create-stack --capabilities CAPABILITY_NAMED_IAM --region ${REGION} \
+                            --template-body file://cloudformation/deploy-cluster-stone.yml --stack-name cluster-deploy \
+                            --parameters ${clusterParameters}"
+                    try {
+                        sh "timeout 3600 aws cloudformation wait stack-create-complete --region ${REGION} --stack-name cluster-deploy"
+                    } catch(Exception e) {
+                        sh "aws cloudformation delete-stack --region ${REGION} --stack-name cluster-deploy" 
+                        sh "aws cloudformation wait stack-delete-complete --region ${REGION} --stack-name cluster-deploy"
+                        error("Build failed because error in cloudformation")
+                    }
+                }
+            }
+
+        }
+    }
+
+}

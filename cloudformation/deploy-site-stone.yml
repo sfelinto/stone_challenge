@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Sets up ecs service
+Description: Sets up ecs site service
 Parameters:
   ClusterName:
     Description: Cluster name
@@ -21,7 +21,13 @@ Parameters:
     Type: String
     Default: 599405637292.dkr.ecr.us-west-1.amazonaws.com/stone:latest
 
+  TgPriorityForHTTP:
+    Description: Target priority for HTTP
+    Type: String
+    Default: '1'
+
 Resources:
+
   TargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
@@ -43,6 +49,20 @@ Resources:
         - Key: stickiness.enabled
           Value: true
 
+  ListenerRuleForHTTP:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn:
+        'Fn::ImportValue': !Sub ${ClusterName}ListenerElbArnForHTTP
+      Priority: !Ref TgPriorityForHTTP
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - "/*"
+      Actions:
+        - TargetGroupArn: !Ref TargetGroup
+          Type: forward
+
   SiteTask:
     Type: AWS::ECS::TaskDefinition
     Properties:
@@ -57,9 +77,13 @@ Resources:
 
   SiteService:
     Type: AWS::ECS::Service
+    DependsOn: ListenerRuleForHTTP
     Properties:
-      Cluster: stone
-      Role: 'arn:aws:iam::599405637292:role/us-west-1-stone_ECSRole'
+      Cluster: 
+        'Fn::ImportValue': !Sub ${ClusterName}ECSCluster
+      Role:
+        'Fn::ImportValue': !Sub ${ClusterName}ECSRoleArn 
+        #'arn:aws:iam::599405637292:role/us-west-1-stone_ECSRole'
       TaskDefinition: !Ref SiteTask
       DesiredCount: !Ref SiteTasksNumber
       DeploymentConfiguration:
@@ -68,5 +92,5 @@ Resources:
       LoadBalancers:
         - ContainerName: stone-elb-site
           ContainerPort: 3000
-          #TargetGroupArn: !Ref TargetGroup
-          TargetGroupArn: 'arn:aws:elasticloadbalancing:us-west-1:599405637292:targetgroup/stone-default/efb5fd11a1b94196'
+          TargetGroupArn: !Ref TargetGroup
+          #TargetGroupArn: 'arn:aws:elasticloadbalancing:us-west-1:599405637292:targetgroup/stone-default/efb5fd11a1b94196'

@@ -79,11 +79,10 @@ Resources:
     Type: AWS::ECS::Service
     DependsOn: ListenerRuleForHTTP
     Properties:
-      Cluster: stone
-        #'Fn::ImportValue': !Sub ${ClusterName}ECSCluster
+      Cluster: 
+        'Fn::ImportValue': !Sub ${ClusterName}ECSCluster
       Role:
-        'Fn::ImportValue': !Sub ${ClusterName}ECSRoleArn 
-        #'arn:aws:iam::599405637292:role/us-west-1-stone_ECSRole'
+        'Fn::ImportValue': !Sub ${ClusterName}ECSRoleArn
       TaskDefinition: !Ref SiteTask
       DesiredCount: !Ref SiteTasksNumber
       DeploymentConfiguration:
@@ -93,4 +92,3 @@ Resources:
         - ContainerName: stone-elb-site
           ContainerPort: 3000
           TargetGroupArn: !Ref TargetGroup
-          #TargetGroupArn: 'arn:aws:elasticloadbalancing:us-west-1:599405637292:targetgroup/stone-default/efb5fd11a1b94196'

@@ -1,0 +1,46 @@
+
+env.REGION="us-west-1"
+
+pipeline {
+    agent {
+        label 'jenkins-ecs-slave'
+    }
+    environment { 
+        GITURL="https://github.com/sfelinto/stone_challenge"
+        CREDENTIALS="57db6742-0251-4c92-b060-9ba078e2dbfa"
+        STACK_NAME = "ecs-cluster-${CLUSTER_NAME}"
+    }
+    stages {
+        stage('Checkout Git on Branch Parameter') {
+            when {                
+                expression { 
+                        params.BRANCH != null
+                }
+            }
+            steps {
+                script {       
+                    git([url: env.GITURL, branch: env.BRANCH, credentialsId: env.CREDENTIALS])
+                }
+            }      
+        }
+
+        stage('DELETE ECS Cluster'){
+            steps {
+                script {
+                    
+                    RESULT = CLUSTER.tokenize(' : ')
+                    STACK_NAME = "ecs-cluster-${RESULT[1]}"
+
+                    sh "aws cloudformation delete-stack --stack-name ${STACK_NAME} --region ${REGION}"
+                    try {
+                        sh "aws cloudformation wait stack-delete-complete --region ${REGION} --stack-name ${STACK_NAME}"
+                     } catch(Exception e) {
+                        error("Build failed because encountered an error in cloudformation")
+                    }
+                }
+            }
+
+        }
+    }
+
+}

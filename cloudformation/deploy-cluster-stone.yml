@@ -467,6 +467,12 @@ Resources:
       ScalingAdjustment: -1
    
 Outputs:  
+
+  EC2InstanceProfile:
+    Value: !Ref EC2InstanceProfile
+    Export:
+      Name: !Sub ${ClusterName}EC2InstanceProfile
+
   VPC:
     Value: !Ref VPC
     Export:
@@ -485,4 +491,24 @@ Outputs:
   ECSCluster: 
     Value: !Ref ECSCluster
     Export:
-      Name: !Sub ${ClusterName}ECSCluster  
+      Name: !Sub ${ClusterName}ECSCluster
+
+  PublicSubnet1:
+    Value: !Ref PublicSubnet1
+    Export:
+      Name: !Sub ${ClusterName}PublicSubnet1
+
+  PublicSubnet2:
+    Value: !Ref PublicSubnet2
+    Export:
+      Name: !Sub ${ClusterName}PublicSubnet2
+
+  PrivateSubnet1:
+    Value: !Ref PrivateSubnet1
+    Export:
+      Name: !Sub ${ClusterName}PrivateSubnet1
+
+  PrivateSubnet2: 
+    Value: !Ref PrivateSubnet2
+    Export:
+      Name: !Sub ${ClusterName}PrivateSubnet2

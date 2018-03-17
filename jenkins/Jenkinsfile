@@ -8,7 +8,6 @@ pipeline {
     environment { 
         GITURL="https://github.com/sfelinto/stone_challenge"
         CREDENTIALS="57db6742-0251-4c92-b060-9ba078e2dbfa"
-        CLUSTER_KEY = CLUSTER_KEY.tokenize( ' : ' )[1]
         STACK_NAME = "ecs-cluster-${CLUSTER_NAME}"
     }
     stages {
@@ -28,6 +27,8 @@ pipeline {
         stage('Create ECS Cluster'){
             steps {
                 script {
+
+                    CLUSTER_KEY = CLUSTER_KEY.tokenize( ' : ' )[1]
 
                     // Parameters
                     String parameters = "ParameterKey=ClusterName,ParameterValue=${CLUSTER_NAME} \

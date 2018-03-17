@@ -28,8 +28,8 @@ pipeline {
             steps {
                 script {
                     
-                    RESULT = SITE.tokenize(' : ')
-                    RESULT_WITH_DASH = RESULT.replaceAll(".", "-")
+                    RESULT = SITE.tokenize(' : ')[1]
+                    RESULT_WITH_DASH = RESULT.replaceAll("\\.", "-")
                     STACK_NAME = "${RESULT_WITH_DASH}"
 
                     sh "aws cloudformation delete-stack --stack-name ${STACK_NAME} --region ${REGION}"

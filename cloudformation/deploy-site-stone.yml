@@ -80,7 +80,8 @@ Resources:
     DependsOn: ListenerRuleForHTTP
     Properties:
       Cluster: 
-        'Fn::ImportValue': !Sub ${ClusterName}ECSCluster
+        'Fn::ImportValue': !Sub ECSCluster
+        #'Fn::ImportValue': !Sub ${ClusterName}ECSCluster
       Role:
         'Fn::ImportValue': !Sub ${ClusterName}ECSRoleArn 
         #'arn:aws:iam::599405637292:role/us-west-1-stone_ECSRole'

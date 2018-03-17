@@ -481,3 +481,8 @@ Outputs:
     Value: !Sub ${ECSRole.Arn}
     Export:
       Name: !Sub ${ClusterName}ECSRoleArn
+
+  ECSCluster: 
+    Value: !Ref ECSCluster
+    Export:
+      Name: !Sub ${ClusterName}ECSCluster  

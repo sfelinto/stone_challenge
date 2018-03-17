@@ -14,4 +14,4 @@ This Git Repository is designed to participate the challenge of Stone's company 
 ### How to run
 
 - [ ] Deploy it the Jenkins within the AWS Cloudformation using the **deploy-jenkins-stone.yml** file;
-    - [ ] This file has all infraestructure it's necessary for Jenkins runs.
+    - This file has the infrastructure that is necessary for Jenkins running.

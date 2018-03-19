@@ -25,7 +25,7 @@ This Git Repository is designed to participate the challenge of Stone's company 
 
 - [ ] Using the Jenkins pipeline to deploy the Site within the AWS Cloudformation using the **deploy-site-stone.yml** file;
     - This script will configure the AWS ECS Task and Service that running our site and publish on web.
-    - Access the Loadbalancer URL with port 3000.
+    - The site access is using Loadbalancer URL.
     
 ## Authors
 

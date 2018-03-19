@@ -11,7 +11,7 @@ This Git Repository is designed to participate the challenge of Stone's company 
 - [ ] Docker
 - [ ] NodeJs
 
-### How to run this project
+### Deployment
 
 - [ ] Deploy it the Jenkins within the AWS Cloudformation using the **deploy-jenkins-stone.yml** file;
     - This file has the infrastructure that is necessary for Jenkins running.

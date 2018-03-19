@@ -60,7 +60,6 @@ Parameters:
     Type: String
     MinLength: 1
     MaxLength: 21
-    AllowedPattern: ˆ[a-zA-z0-9]*$
     
   KeyName:
     Description: Keypair for service
@@ -552,3 +551,13 @@ Resources:
       VPCZoneIdentifier:
         - !Ref PrivateSubnet1
         - !Ref PrivateSubnet2
+
+Outputs:
+  URL:
+    Description: URL of Jenkins
+    Value: !Join 
+      - ''
+      - - 'http://'
+        - !GetAtt 
+          - LoadBalancer
+          - DNSName

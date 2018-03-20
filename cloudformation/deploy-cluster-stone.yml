@@ -512,3 +512,14 @@ Outputs:
     Value: !Ref PrivateSubnet2
     Export:
       Name: !Sub ${ClusterName}PrivateSubnet2
+
+  URL:
+    Description: Site's URL
+    Value: !Join 
+      - ''
+      - - 'http://'
+        - !GetAtt 
+          - LoadBalancer
+          - DNSName
+    Export:
+      Name: !Sub ${ClusterName}LoadBalancer
